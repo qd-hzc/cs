@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+        "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap namespace="sqlite">
+	<insert id="insert">
+		insert into
+		exceptionretrymail(mailcontent,mailsubject,mailto,ccmailto,mqname,createddate)
+		values
+		(#mailContent#,#mailSubject#,#mailToStr#,#ccMailToStr#,#mqName#,#createdDate#)
+		<selectKey resultClass="int" type="post" keyProperty="id">
+			SELECT
+			seq
+			FROM sqlite_sequence WHERE (name = 'exceptionretrymail')
+		</selectKey>
+	</insert>
+	<resultMap class="com.hisense.hitv.mss.MailVO"
+		id="messageVOList">
+		<result property="id" column="id" />
+		<result property="mailContent" column="mailcontent" />
+		<result property="mailSubject" column="mailsubject" />
+		<result property="mailToStr" column="mailto" />
+		<result property="ccMailToStr" column="ccmailto" />
+		<result property="mqName" column="mqname" />
+		<result property="createdDate" column="createddate" />
+	</resultMap>
+	<select id="getAllExceptionRetryMsg" resultMap="messageVOList">
+		select id, mailcontent,mailsubject,mailto,ccmailto,mqname,createddate
+		from exceptionretrymail
+	</select>
+	<delete id="delete">
+		delete from exceptionretrymail  where id=#id#
+	</delete>
+</sqlMap>

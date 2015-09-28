@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project name="deploy" default="clean" basedir=".">
+    <target name="init-properties" >
+        <echo message="-----Init------"></echo>
+        <property name="web.root" value="WebRoot"/>
+        <property name="web.base" value="web"/>
+        <property name="web.deploy" value="cs"/>
+    	<property name="web.data" location="data"/>
+        <property name="debuglevel" value="lines,vars,source"></property>
+        <property name="web.classes" value="${web.root}/WEB-INF/classes"/>
+        <property name="web.src" value="src"/>
+        <mkdir dir="${web.root}"/>
+        <mkdir dir="${web.deploy}"/>
+        <copy todir="${web.root}">
+            <fileset dir="${web.base}">
+                <include name="**/*.*"/>
+                <exclude name="**/*.class"/>
+            </fileset>
+        </copy>
+        <delete includeemptydirs="true">
+            <fileset dir="${web.src}" includes="**/*Test.java" defaultexcludes="false"/>
+        </delete>
+    </target>
+    <target name="compile" depends="init-properties">
+        <path id="compile-classspath">
+            <fileset dir="${web.root}/WEB-INF/lib">
+                <include name="**/*.jar"/>
+            </fileset>
+        </path>
+        <echo message="compiling the source.........."/>
+    	<javac encoding="UTF-8" srcdir="${web.src}" destdir="${web.classes}" debug="on" includeantruntime="false"  debuglevel="${debuglevel}">
+    	    <classpath refid="compile-classspath" />
+    	</javac>
+    	
+        <echo message="Begining copy the files for releasing......"/>
+        <copy todir="${web.classes}">
+            <fileset dir="${web.src}">
+                <include name="**/*.properties"/>
+            </fileset>
+        </copy>
+        <copy todir="${web.classes}">
+            <fileset dir="${web.src}">
+                <include name="**/*.xml"/>
+            </fileset>
+        </copy>
+    	<copy todir="${web.deploy}/data">
+    		<fileset dir="${web.data}">
+    			<include name="**/*" />
+    		</fileset>
+    	</copy>
+    </target>
+
+    <target name="deploy.cs" depends="compile">
+        <echo message="-----Deploy CS Start------"></echo>
+        <copy todir="${web.deploy}" overwrite="true" preservelastmodified="true">
+            <fileset dir="${web.root}">
+                <include name="**/*"/>
+                <exclude name="**/*Test*.*"/>
+            </fileset>
+        </copy>
+        <move todir="${web.deploy}/WEB-INF/lib" overwrite="true" preservelastmodified="true" flatten="true">
+            <fileset dir="${web.deploy}/WEB-INF/lib">
+                <include name="**/*.jar"/>
+            </fileset>
+        </move>
+        <delete includeEmptyDirs="true" verbose="true">
+            <fileset dir="${web.deploy}/WEB-INF/lib" includes="**/*" excludes="*.jar"/>
+        </delete>
+
+        <echo message="-----Deploy Done------"></echo>
+    </target>
+
+    <target name="tarfile" depends="deploy.cs">
+        <property name="web.deploy" value="cs"/>
+        <tar destfile="${web.deploy}.tar" longfile="gnu">
+            <tarfileset dir="${web.deploy}" mode="755" prefix="${web.deploy}"/>
+        </tar>
+    </target>
+
+    <target name="clean" depends="tarfile">
+        <property name="web.root" value="WebRoot"/>
+        <property name="web.deploy" value="cs"/>
+        <delete dir="${web.deploy}"/>
+        <delete dir="${web.root}"/>
+    </target>
+</project>

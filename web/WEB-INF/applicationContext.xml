@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx" xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                    http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+                    http://www.springframework.org/schema/context
+                    http://www.springframework.org/schema/context/spring-context-2.5.xsd
+                    http://www.springframework.org/schema/aop
+                    http://www.springframework.org/schema/aop/spring-aop-2.5.xsd
+                    http://www.springframework.org/schema/tx 
+                    http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+                    http://www.springframework.org/schema/task      
+    				http://www.springframework.org/schema/task/spring-task-3.0.xsd">
+    <bean id="messageSource"
+          class="org.springframework.context.support.ResourceBundleMessageSource">
+        <property name="basename">
+            <value>messages</value>
+        </property>
+    </bean>
+    <!-- <bean id="neCfg" class="com.hisense.hitv.common.nms.NECfg">
+        <property name="neID" value="${NEID}" />
+        <property name="neName" value="${NEName}" />
+        <property name="nePort" value="${NEPort}" />
+        <property name="neVersion" value="${NEVersion}" />
+        <property name="agentIP" value="${AgentIP}" />
+    </bean>
+    <bean id="nmsAdapter" class="com.hisense.hitv.common.nms.NMSAdapter">
+        <property name="neCfg" ref="neCfg" />
+        <property name="propertyConfigurer" ref="propertyConfigurer" />
+    </bean> -->
+    <bean id="propertyConfigurer"
+          class="com.hisense.hitv.utils.MyPropertyPlaceholderConfigurerUtil">
+        <property name="location">
+            <value>file:/usr/local/yuwei/cs.cfg</value>
+        </property>
+    </bean>
+    <bean id="params" class="com.hisense.hitv.utils.Params">
+        <property name="connectTimeout">
+            <value>${connectTimeout}</value>
+        </property>
+        <property name="hostMailAddress">
+            <value>${hostMailAddress}</value>
+        </property>
+        <property name="mailSender">
+            <value>${mailSender}</value>
+        </property>
+        <property name="isSmtpAuth">
+            <value>${isSmtpAuth}</value>
+        </property>
+        <property name="hostMailLoginName">
+            <value>${hostMailLoginName}</value>
+        </property>
+        <property name="mailServerHost">
+            <value>${mailServerHost}</value>
+        </property>
+        <property name="hostMailPin">
+            <value>${hostMailPin}</value>
+        </property>
+        <property name="fileNumber">
+            <value>${maxFileNumber}</value>
+        </property>
+        <property name="size">
+            <value>${totalFileSize}</value>
+        </property>
+        <property name="encryptionkey">
+            <value>${encryption_key}</value>
+        </property>
+        <property name="expireLong">
+            <value>${expireLong}</value>
+        </property>
+        <property name="sqliteRunDBUrl">
+            <value>${sqliteRunDBUrl}</value>
+        </property>
+        <property name="sqliteInitDBUrl">
+            <value>${sqliteInitDBUrl}</value>
+        </property>
+    </bean>
+    <bean id="connectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">
+        <property name="brokerURL">
+            <value>failover:(${mqUrlMessage})?randomize=true&amp;maxReconnectAttempts=${maxReconnectAttempts}&amp;startupMaxReconnectAttempts=${startupMaxReconnectAttempts}</value>
+        </property>
+    </bean>
+    <!--declare a JMS queue -->
+    <bean id="messageListenerQueue" class="org.apache.activemq.command.ActiveMQQueue">
+        <constructor-arg index="0" value="${mqListenerName}" />
+    </bean>
+    <bean id="messageSenderQueue" class="org.apache.activemq.command.ActiveMQQueue">
+        <constructor-arg index="0" value="${mqSenderName}" />
+    </bean>
+    <bean id="listenerContainer"
+          class="org.springframework.jms.listener.DefaultMessageListenerContainer">
+        <property name="connectionFactory" ref="connectionFactory"></property>
+        <property name="destination" ref="messageSenderQueue"></property>
+        <property name="messageListener" ref="messageListener"></property>
+    </bean>
+
+    <bean id="jmsTemplate" class="org.springframework.jms.core.JmsTemplate">
+        <property name="connectionFactory" ref="connectionFactory"></property>
+        <property name="defaultDestination" ref="messageListenerQueue"></property>
+    </bean>
+    <!-- message sender -->
+    <bean id="messageSender" class="com.hisense.hitv.mq.MqMessageSender">
+        <property name="jmsTemplate" ref="jmsTemplate"></property>
+    </bean>
+    <bean id="mailSendService" class="com.hisense.hitv.mss.MailSendService">
+
+    </bean>
+    <bean id="mQMailSenderService" class="com.hisense.hitv.mss.MQMailSenderService">
+        <property name="mailSendService" ref="mailSendService"></property>
+        <property name="messageSender" ref="messageSender" />
+    </bean>
+    <!-- message receiver -->
+    <bean id="messageListener" class="com.hisense.hitv.mq.MqMessageListener">
+        <property name="messageSender" ref="messageSender" />
+        <property name="params" ref="params"></property>
+        <property name="mQMailSenderService" ref="mQMailSenderService"></property>
+        <property name="retryTimes" value="${retryTimes}"></property>
+        <property name="exceptionretryMailDao" ref="exceptionretryMailDao" />
+    </bean>
+    <bean id="exceptionProcessorTask" class="com.hisense.hitv.task.impl.ExceptionProcessorTaskImpl">
+        <property name="mQMailSenderService" ref="mQMailSenderService"></property>
+        <property name="exceptionretryMailDao" ref="exceptionretryMailDao"></property>
+        <property name="messageSender" ref="messageSender"></property>
+        <property name="retryTimes" value="${retryTimes}"></property>
+        <property name="params" ref="params"></property>
+    </bean>
+    <task:scheduled-tasks scheduler="scheduler">
+        <task:scheduled ref="exceptionProcessorTask" method="processExceptionTask"
+                        cron="0 0/${executeSpeed} * * * ?" />
+    </task:scheduled-tasks>
+    <task:scheduler id="scheduler" pool-size="1" />
+</beans>
